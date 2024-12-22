@@ -11,6 +11,7 @@ class MyCovertChannel(CovertChannelBase):
         """
         pass
     def send(self, log_file_name, parameter1, parameter2):
+        print("deneme")
         """
         - In this function, you expected to create a random message (using function/s in CovertChannelBase), and send it to the receiver container. Entire sending operations should be handled in this function.
         - After the implementation, please rewrite this comment part to explain your code basically.
