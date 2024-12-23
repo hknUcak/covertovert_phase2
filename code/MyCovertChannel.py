@@ -1,8 +1,7 @@
 from CovertChannelBase import CovertChannelBase
 import random
-from scapy.all import *
 import time
-from scapy.all import IP, UDP, DNS, DNSQR, send
+from scapy.all import IP, UDP, DNS, DNSQR, sniff
 """
 dikkat edilmesi gerekenler:
 +sender sürekli şekilde while döngüsünde olup dns paket gönderecek, receiver sniffleyecek. receiver snifflerken o sırada sender göndermemesi
@@ -15,29 +14,35 @@ class MyCovertChannel(CovertChannelBase):
     def __init__(self):
         pass
 
-    def send(self, log_file_name):
+    def send(self,number_of_dns_packet, log_file_name):
+        start=time.time()
         binary_message = self.generate_random_binary_message_with_logging(log_file_name)
         checking_for_dot_character = ""
         i = 0
+        
         
         while True:
             if binary_message[i] == '0':
                 #send two consecutive DNS packets with same RA flag
             	#here we implemented randint function to choose the flag randomly, so that the covert channel can be more powerful
-                #random_flag = random.randint(0, 1)
-                self.send_dns_packet(ra_flag=0)
-                self.send_dns_packet(ra_flag=0)
+                random_flag = random.randint(0, 1)
+                for j in range(0,number_of_dns_packet):
+                    self.send_dns_packet(ra_flag=random_flag)
             elif binary_message[i] == '1':
                 #send two consecutive DNS packets with different RA flag
                 #here we implemented randint function to choose the flag randomly, so that the covert channel can be more powerful
-                #random_flag = random.randint(0, 1)
-                self.send_dns_packet(ra_flag=0)
-                self.send_dns_packet(ra_flag=1)
+                random_flag = random.randint(0, 1)
+                for j in range(0,number_of_dns_packet):
+                    self.send_dns_packet(ra_flag=random_flag)
+                    random_flag = not (random_flag)
             
             checking_for_dot_character += binary_message[i]
             #check fo end of the message (dot character)
             if len(checking_for_dot_character) == 8:
                 if checking_for_dot_character == "00101110": #if checking_for_dot_character equals to dot character
+                    end=time.time()
+                    duration=end-start
+                    print("duration: ", duration, "\n")
                     print("ENNDDDDD")
                     break
                 checking_for_dot_character = ""
@@ -52,24 +57,26 @@ class MyCovertChannel(CovertChannelBase):
         
         #setting ra flag in the DNS packet
         if ra_flag == 1:
-            dns_query[DNS].ra =1
+            dns_query[DNS].ra =1 
         else:
             dns_query[DNS].ra =0
 
-        send(dns_query, verbose=False)
-        time.sleep(0.1)  #small delay to ensure proper sequencing
+        CovertChannelBase.send(self,dns_query)
+        
+        time.sleep(0.05)  #small delay to ensure proper sequencing
 
-    def receive(self, log_file_name):
+    def receive(self, number_of_dns_packet,log_file_name):
         decoded_message = ""
         checking_for_dot_character=""
         received_message=""
         while True:
             #listen to the upcoming two dns packets
-            packets = self.listen_for_dns_packets()
+            packets = self.listen_for_dns_packets(number_of_dns_packet)
             
             #if two consecutive received dns packets have the same ra flag, then decode it as '0'
             #otherwise decode it as '1'
-            if packets[0][DNS].ra == packets[1][DNS].ra:
+            ra_flag_set={packet[DNS].ra for packet in packets}
+            if len(ra_flag_set)==1:
                 decoded_message += '0'
                 checking_for_dot_character+= '0'
             else:
@@ -86,6 +93,6 @@ class MyCovertChannel(CovertChannelBase):
         
         self.log_message(received_message, log_file_name)
 
-    def listen_for_dns_packets(self):
-        packets = sniff(filter="udp and host 172.18.0.2 and port 53", count=2)
+    def listen_for_dns_packets(self, number_of_dns_packet):
+        packets = sniff(filter="udp and host 172.18.0.2 and port 53", count=number_of_dns_packet)
         return packets
