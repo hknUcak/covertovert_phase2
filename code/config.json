@@ -2,11 +2,13 @@
   "covert_channel_code": "CSC-PSV-DNS-RAF",
   "send": {
     "parameters": {
+    	"number_of_dns_packet": 2, 
       "log_file_name": "RaFlagFieldDNSSender.log"
     }
   },
   "receive": {
     "parameters": {
+    "number_of_dns_packet": 2, 
       "log_file_name": "RaFlagFieldDNSReceiver.log"
     }
   }
