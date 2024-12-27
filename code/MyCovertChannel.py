@@ -11,148 +11,169 @@ class MyCovertChannel(CovertChannelBase):
         self.current_seq = 0
 
     def send_dns_packet(self, ra_flag):
-        """Send DNS packet with sequence number"""
-        dns_query = IP(dst=self.dst_ip)/UDP(dport=self.dns_port)/DNS(
-            id=self.current_seq,  # Use DNS ID for sequence
-            qr=0,  # Query
+        """Send DNS packet with RA flag"""
+        dns_query = IP(dst=self.dst_ip) / UDP(dport=self.dns_port) / DNS(
+            id=self.current_seq,
+            qr=0,
             ra=ra_flag
         )
-        
-        # Send packet and increment sequence
         super().send(dns_query)
         self.current_seq = (self.current_seq + 1) % 65535
-        time.sleep(0.005)  # Minimal delay for network stability
+        time.sleep(0.005)
+
+    def rle_encode(self, data):
+        """Run-Length Encode a binary string."""
+        encoded = []
+        count = 1
+        for i in range(1, len(data)):
+            if data[i] == data[i - 1]:
+                count += 1
+            else:
+                encoded.append((data[i - 1], count))
+                count = 1
+        encoded.append((data[-1], count))
+        return encoded
+
+    def rle_decode(self, encoded):
+        """Decode an RLE encoded message."""
+        decoded = ''.join(bit * count for bit, count in encoded)
+        return decoded
+
+    def decode_binary_to_message(self, binary_message):
+        """Convert binary string to text message"""
+        message = ""
+        current_bits = ""
+        
+        for bit in binary_message:
+            current_bits += bit
+            if len(current_bits) == 8:
+                try:
+                    char = self.convert_eight_bits_to_character(current_bits)
+                    message += char
+                    if char == '.':
+                        break
+                    current_bits = ""
+                except ValueError as e:
+                    print(f"Error converting bits {current_bits}: {e}")
+                    current_bits = current_bits[1:]
+        
+        return message
 
     def send(self, log_file_name):
         start = time.time()
         binary_message = self.generate_random_binary_message_with_logging(log_file_name)
-        print(f"Starting transmission of {len(binary_message)} bits")
-        
+        print(f"Original message length: {len(binary_message)} bits")
+
+        # Preprocess the binary message with RLE
+        rle_encoded_message = self.rle_encode(binary_message)
+        print(f"RLE Encoded Message: {rle_encoded_message}")
+
         # Send initial sync packet
-        sync_packet = IP(dst=self.dst_ip)/UDP(dport=self.dns_port)/DNS(
-            id=65534,  # Special sequence for sync
+        sync_packet = IP(dst=self.dst_ip) / UDP(dport=self.dns_port) / DNS(
+            id=65534,
             qr=0,
             ra=0
         )
         super().send(sync_packet)
-        #time.sleep(0.02)  # Wait for receiver to initialize
-        
-        checking_for_dot_character = ""
-        i = 0
-        
+        time.sleep(0.1)
+
         try:
-            while True:
-                #if i % 10 == 0:
-                #    print(f"Sending bit {i}")
-                
-                # Send bit using RA flags
-                if binary_message[i] == '0':
-                    self.send_dns_packet(ra_flag=0)
-                    self.send_dns_packet(ra_flag=0)
-                else:
-                    self.send_dns_packet(ra_flag=0)
-                    self.send_dns_packet(ra_flag=1)
-                
-                checking_for_dot_character += binary_message[i]
-                if len(checking_for_dot_character) == 8:
-                    if checking_for_dot_character == "00101110":
-                        print("End of message detected")
-                        end = time.time()
-                        print(end-start)
-                        break
-                    checking_for_dot_character = ""
-                
-                i += 1
-                if i >= len(binary_message):
-                    break
-                
+            for bit, count in rle_encoded_message:
+                print(f"Sending bit {bit} repeated {count} times")
+                for _ in range(count):
+                    self.send_dns_packet(ra_flag=int(bit))
+
+            # Send end marker and stop
+            print("Sending end marker")
+            self.send_dns_packet(ra_flag=1)
+            self.send_dns_packet(ra_flag=1)
+            
+            # Add a final confirmation packet
+            final_packet = IP(dst=self.dst_ip) / UDP(dport=self.dns_port) / DNS(
+                id=65535,  # Special ID for final packet
+                qr=0,
+                ra=0
+            )
+            super().send(final_packet)
+
+            end = time.time()
+            print(f"Transmission completed in {end - start:.2f} seconds")
+            return  # Exit after sending final packet
+
         except KeyboardInterrupt:
             print("\nTransmission interrupted")
             raise
 
     def receive(self, log_file_name):
         print("Starting receiver...")
-        decoded_message = ""
-        checking_for_dot_character = ""
-        received_message = ""
-        expected_seq = 0
-        packet_buffer = []
+        rle_data = []
+        last_bit = None
+        bit_count = 0
         in_sync = False
-        
+        final_message = None
+
         def process_packet(packet):
-            """Process received DNS packet"""
-            nonlocal packet_buffer, in_sync, expected_seq
-            
+            nonlocal in_sync, rle_data, last_bit, bit_count, final_message
+
             if DNS not in packet:
-                return
-            
+                return False
+
             # Handle sync packet
             if not in_sync and packet[DNS].id == 65534:
                 print("Sync packet received")
                 in_sync = True
-                expected_seq = 0
-                return
-            
+                return False
+
+            # Handle final packet - only stop if we have processed the message
+            if packet[DNS].id == 65535 and final_message is not None:
+                print("Final packet received")
+                self.log_message(final_message, log_file_name)  # Log message here
+                return True
+
             if not in_sync:
-                return
+                return False
+
+            # Process RA flag
+            current_bit = str(packet[DNS].ra)
             
-            # Add packet to buffer
-            packet_buffer.append(packet)
-            
-            # Process pairs of packets
-            if len(packet_buffer) >= 2:
-                p1, p2 = packet_buffer[:2]
-                packet_buffer = packet_buffer[2:]
-                
-                #print(f"Processing packets with seq {p1[DNS].id}, {p2[DNS].id}")
-                return process_packet_pair(p1, p2)
-            
-            return False
-            
-        def process_packet_pair(p1, p2):
-            """Process a pair of packets to decode a bit"""
-            nonlocal decoded_message, checking_for_dot_character, received_message
-            
-            # Decode based on RA flags
-            if p1[DNS].ra == p2[DNS].ra:
-                decoded_message += '0'
-                checking_for_dot_character += '0'
+            if last_bit is None:
+                last_bit = current_bit
+                bit_count = 1
+                return False
+
+            if current_bit == last_bit:
+                bit_count += 1
             else:
-                decoded_message += '1'
-                checking_for_dot_character += '1'
-            
-            #print(f"Decoded bits so far: {len(decoded_message)}")
-            
-            # Check for message end
-            if len(checking_for_dot_character) == 8:
-                try:
-                    char = self.convert_eight_bits_to_character(checking_for_dot_character)
-                    received_message += char
-                    #print(f"Decoded character: {char}")
-                    
-                    if char == '.':
-                        print("End of message detected")
-                        self.log_message(received_message, log_file_name)
-                        return True
-                    checking_for_dot_character = ""
-                except ValueError as e:
-                    print(f"Error converting bits: {e}")
-                    checking_for_dot_character = checking_for_dot_character[1:]
-            
+                rle_data.append((last_bit, bit_count))
+                last_bit = current_bit
+                bit_count = 1
+
+            # Check for end marker (two consecutive 1s)
+            if len(rle_data) > 0 and last_bit == '1' and bit_count >= 2:
+                print("End marker detected")
+                binary_message = self.rle_decode(rle_data)
+                decoded_message = self.decode_binary_to_message(binary_message)
+                print(f"Decoded message: {decoded_message}")
+                final_message = decoded_message  # Store message but don't log yet
+                return False
+
             return False
-        
+
         try:
             print("Waiting for packets...")
             sniff(
                 filter=f"udp and host {self.src_ip} and port {self.dns_port}",
                 prn=process_packet,
-                stop_filter=lambda p: DNS in p and len(received_message) > 0 and received_message[-1] == '.',
+                stop_filter=lambda p: DNS in p and p[DNS].id == 65535 and final_message is not None,
                 store=0
             )
-            
-            print(f"\nFinal message: {received_message}")
-            
+
+            if final_message:
+                print(f"\nFinal message: {final_message}")
+            else:
+                print("No message received")
+
         except KeyboardInterrupt:
             print("\nReceive interrupted")
-            if received_message:
-                self.log_message(received_message, log_file_name)
+            if final_message:
+                self.log_message(final_message, log_file_name)
