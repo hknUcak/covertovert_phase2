@@ -6,7 +6,10 @@
 Covert Channel documentation
 ============================
 
-Please add your names, group ID, and your link to the forked public repository here by editing `index.rst` in the docs folder.
+Hakan Uçak 2522050
+Mustafa Kutlan Kale 2521664
+Group 36
+https://github.com/hknUcak/covertovert_phase2/tree/main
 
 
 .. toctree::
