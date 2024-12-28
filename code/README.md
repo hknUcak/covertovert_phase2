@@ -34,6 +34,8 @@ send("message.log", transmission_mode='reliable', chunk_size=8, validation_mode=
 - Applies preprocessing (XOR and rotation)
 - Adds validation bits
 - Transmits via DNS RA flag
+chunk_size minimum value = 2, max value = 8
+validation_mode can take 'xor', 'parity', 'pattern'
 
 #### Receiver
 The receiver component captures and processes DNS packets:
@@ -44,6 +46,8 @@ receive("received.log", chunk_size=8, validation_mode='xor')
 - Extracts RA flag values
 - Validates and processes chunks
 - Reconstructs original message
+chunk_size minimum value = 2, max value = 8
+validation_mode can take 'xor', 'parity', 'pattern'
 
 ### Preprocessing
 
