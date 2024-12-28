@@ -98,10 +98,6 @@ dns_query = IP(dst=self.dst_ip) / UDP(dport=self.dns_port) / DNS(
 7. Reconstruct Message
 
 
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ## References
 
 - DNS Protocol Specification (RFC 1035)
