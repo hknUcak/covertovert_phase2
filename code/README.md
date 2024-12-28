@@ -28,16 +28,12 @@ The covert channel works by:
 #### Sender
 The sender component handles message preprocessing and transmission:
 ```python
-send("message.log", transmission_mode='reliable', chunk_size=8, validation_mode='xor')
+send("message.log", transmission_mode='fast', chunk_size=8, validation_mode='xor')
 ```
 - Converts message to binary
 - Applies preprocessing (XOR and rotation)
 - Adds validation bits
 - Transmits via DNS RA flag
-- chunk_size minimum value = 2, max value = 8
-- validation_mode can take 'xor', 'parity', 'pattern'
-- Please give same type/value parameters to both sender and receiver
-- Default parameters are the most optimized version
 
 #### Receiver
 The receiver component captures and processes DNS packets:
@@ -48,10 +44,6 @@ receive("received.log", chunk_size=8, validation_mode='xor')
 - Extracts RA flag values
 - Validates and processes chunks
 - Reconstructs original message
-- chunk_size minimum value = 2, max value = 8
-- validation_mode can take 'xor', 'parity', 'pattern'
-- Please give same type/value parameters to both sender and receiver
-- Default parameters are the most optimized version
 
 ### Preprocessing
 
@@ -83,7 +75,7 @@ def preprocess_bits(self, bits, chunk_size):
 - `pattern`: Pattern-based validation
 
 #### Other Parameters
-- `chunk_size`: Size of processing chunks (default: 8)
+- `chunk_size`: Size of processing chunks (default: 8) (give this parameter as 4 or 8, the most optimized one is 8)
 
 ## Technical Implementation
 
