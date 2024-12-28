@@ -28,10 +28,7 @@ The covert channel works by:
 #### Sender
 The sender component handles message preprocessing and transmission:
 ```python
-send("message.log", 
-            transmission_mode='reliable', 
-            chunk_size=4, 
-            validation_mode='xor')
+send("message.log", transmission_mode='reliable', chunk_size=8, validation_mode='xor')
 ```
 - Converts message to binary
 - Applies preprocessing (XOR and rotation)
@@ -41,9 +38,7 @@ send("message.log",
 #### Receiver
 The receiver component captures and processes DNS packets:
 ```python
-receive("received.log", 
-               chunk_size=4, 
-               validation_mode='xor')
+receive("received.log", chunk_size=8, validation_mode='xor')
 ```
 - Captures DNS packets
 - Extracts RA flag values
