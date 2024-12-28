@@ -105,6 +105,23 @@ class MyCovertChannel(CovertChannelBase):
         return message
 
     def send(self, log_file_name, transmission_mode='fast', chunk_size=8, validation_mode='xor'):
+        """
+        Sends a covert message by manipulating DNS RA flag.
+        
+        Flow:
+        1. Generate random binary message and log it
+        2. Preprocess binary message using XOR and rotation operations
+        3. Add validation bits to each chunk based on validation mode
+        4. Send each bit through DNS packets by setting RA flag
+        5. Send final packet to signal transmission end
+        
+        Args:
+            log_file_name (str): File to log the original message
+            transmission_mode (str): Speed of transmission ('fast', 'reliable', 'stealth')
+            chunk_size (int): Size of chunks for preprocessing (4-8 bits) (give this parameter as 4 or 8, the most optimized one is 8)
+            validation_mode (str): Type of validation ('xor', 'parity', 'pattern')
+        
+    """
         start = time.time()
         binary_message = self.generate_random_binary_message_with_logging(log_file_name)
 
@@ -162,7 +179,29 @@ class MyCovertChannel(CovertChannelBase):
             return not all(chunk[i] == chunk[i-1] for i in range(1, len(chunk)))
         return True
 
-    def receive(self, log_file_name, chunk_size=4, validation_mode='xor'):
+    def receive(self, log_file_name, chunk_size=8, validation_mode='xor'):
+        """
+        Receives and decodes covert messages from DNS RA flags.
+        
+        Flow:
+        1. Sniff DNS packets and extract RA flag values
+        2. Accumulate bits until a full chunk is received
+        3. Validate each chunk using specified validation mode
+        4. Process valid chunks through reverse preprocessing
+        5. Accumulate original bits and try to decode message
+        6. Stop when complete message (ending with '.') is received
+        
+        Args:
+            log_file_name (str): File to save the decoded message
+            chunk_size (int): Size of chunks for preprocessing (4-8 bits) (give this parameter as 4 or 8, the most optimized one is 8)
+            validation_mode (str): Type of validation ('xor', 'parity', 'pattern')
+        
+        Implementation details:
+        - Uses nested process_packet function for packet handling
+        - Maintains running counters for processed and valid chunks
+        - Accumulates bits until valid message is found
+        - Stops on final packet (ID 65535) after message is decoded
+        """
         received_bits = []
         accumulated_bits = []
         final_message = None
