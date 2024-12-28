@@ -1,5 +1,5 @@
 from CovertChannelBase import CovertChannelBase
-from scapy.all import IP, UDP, DNS, DNSQR, send, sniff
+from scapy.all import IP, UDP, DNS, DNSQR, sniff
 import time
 
 class MyCovertChannel(CovertChannelBase):
@@ -143,7 +143,8 @@ class MyCovertChannel(CovertChannelBase):
 
             end = time.time()
             actual_time = end - start
-
+            print("message transmission time: ", actual_time, " seconds")
+            print("channel capacity (bits/sec): ", len(binary_message)/actual_time, " bits/sec")
         except KeyboardInterrupt:
             print("\nTransmission interrupted")
             raise
@@ -216,7 +217,7 @@ class MyCovertChannel(CovertChannelBase):
         try:
             sniff(
                 filter=f"udp and host {self.src_ip} and port {self.dns_port}",
-                prn=process_packet,
+                prn=lambda pkt: process_packet(pkt) or None,
                 stop_filter=lambda p: DNS in p and p[DNS].id == 65535 and final_message is not None,
                 store=0
             )
