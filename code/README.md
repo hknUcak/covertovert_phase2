@@ -97,6 +97,8 @@ dns_query = IP(dst=self.dst_ip) / UDP(dport=self.dns_port) / DNS(
 6. Reverse Preprocessing
 7. Reconstruct Message
 
+### Covert Channel Capacity in Bits Per Second
+17.68
 
 ## References
 
